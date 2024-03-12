@@ -23,8 +23,9 @@ hs_err_*
 !src/projects/ulr/
 !src/projects/dataset_tools/
 
-# re include guassian viewer
+# re include guassian viewer and sibr_basic
 !src/projects/gaussianviewer
+!src/projects/basic
 
 # more vim garbage
 # Swap
