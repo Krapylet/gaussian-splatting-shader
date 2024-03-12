@@ -101,6 +101,7 @@ namespace sibr {
 		float* scale_cuda;
 		float* opacity_cuda;
 		float* shs_cuda;
+		float* precomputedColors_cuda;
 		int* rect_cuda;
 
 		GLuint imageBuffer;

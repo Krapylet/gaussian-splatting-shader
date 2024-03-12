@@ -32,6 +32,10 @@ struct Rot
 {
 	float rot[4];
 };
+struct Color
+{
+	float color[3];
+};
 template<int D>
 struct RichPoint
 {
@@ -73,6 +77,7 @@ int loadPly(const char* filename,
 	std::vector<float>& opacities,
 	std::vector<Scale>& scales,
 	std::vector<Rot>& rot,
+	std::vector<Color>& precomputedColors,
 	sibr::Vector3f& minn,
 	sibr::Vector3f& maxx)
 {
@@ -109,6 +114,7 @@ int loadPly(const char* filename,
 	scales.resize(count);
 	rot.resize(count);
 	opacities.resize(count);
+	precomputedColors.resize(count);
 
 	// Gaussians are done training, they won't move anymore. Arrange
 	// them according to 3D Morton order. This means better cache
@@ -175,6 +181,27 @@ int loadPly(const char* filename,
 			shs[k].shs[j * 3 + 2] = points[i].shs.shs[(j - 1) + 2 * SH_N + 1];
 		}
 	}
+
+	for (size_t i = 0; i < count; i++)
+	{
+		if(pos[i][0] > 0
+		&& pos[i][0] < 1
+		&& pos[i][1] > 0
+		&& pos[i][1] < 1
+		&& pos[i][2] > 0
+		&& pos[i][2] < 1){  // Make a small cube render as red instead of the real color
+			precomputedColors[i].color[0] = 1;
+			precomputedColors[i].color[1] = 0;
+			precomputedColors[i].color[2] = 0;
+		}
+		else{             // negative number = code for using SH
+			precomputedColors[i].color[0] = -1;
+			precomputedColors[i].color[1] = -1;
+			precomputedColors[i].color[2] = -1;
+		}
+	}
+	
+
 	return count;
 }
 
@@ -360,21 +387,22 @@ sibr::GaussianView::GaussianView(const sibr::BasicIBRScene::Ptr & ibrScene, uint
 	std::vector<Scale> scale;
 	std::vector<float> opacity;
 	std::vector<SHs<3>> shs;
+	std::vector<Color> precomputedColors;
 	if (sh_degree == 0)
 	{
-		count = loadPly<0>(file, pos, shs, opacity, scale, rot, _scenemin, _scenemax);
+		count = loadPly<0>(file, pos, shs, opacity, scale, rot, precomputedColors, _scenemin, _scenemax);
 	}
 	else if (sh_degree == 1)
 	{
-		count = loadPly<1>(file, pos, shs, opacity, scale, rot, _scenemin, _scenemax);
+		count = loadPly<1>(file, pos, shs, opacity, scale, rot, precomputedColors, _scenemin, _scenemax);
 	}
 	else if (sh_degree == 2)
 	{
-		count = loadPly<2>(file, pos, shs, opacity, scale, rot, _scenemin, _scenemax);
+		count = loadPly<2>(file, pos, shs, opacity, scale, rot, precomputedColors, _scenemin, _scenemax);
 	}
 	else if (sh_degree == 3)
 	{
-		count = loadPly<3>(file, pos, shs, opacity, scale, rot, _scenemin, _scenemax);
+		count = loadPly<3>(file, pos, shs, opacity, scale, rot, precomputedColors, _scenemin, _scenemax);
 	}
 
 	_boxmin = _scenemin;
@@ -393,6 +421,8 @@ sibr::GaussianView::GaussianView(const sibr::BasicIBRScene::Ptr & ibrScene, uint
 	CUDA_SAFE_CALL_ALWAYS(cudaMemcpy(opacity_cuda, opacity.data(), sizeof(float) * P, cudaMemcpyHostToDevice));
 	CUDA_SAFE_CALL_ALWAYS(cudaMalloc((void**)&scale_cuda, sizeof(Scale) * P));
 	CUDA_SAFE_CALL_ALWAYS(cudaMemcpy(scale_cuda, scale.data(), sizeof(Scale) * P, cudaMemcpyHostToDevice));
+	CUDA_SAFE_CALL_ALWAYS(cudaMalloc((void**)&precomputedColors_cuda, sizeof(Color) * P));
+	CUDA_SAFE_CALL_ALWAYS(cudaMemcpy(precomputedColors_cuda, precomputedColors.data(), sizeof(Color) * P, cudaMemcpyHostToDevice));
 
 	// Create space for view parameters
 	CUDA_SAFE_CALL_ALWAYS(cudaMalloc((void**)&view_cuda, sizeof(sibr::Matrix4f)));
@@ -507,7 +537,7 @@ void sibr::GaussianView::onRenderIBR(sibr::IRenderTarget & dst, const sibr::Came
 			_resolution.x(), _resolution.y(),
 			pos_cuda,
 			shs_cuda,
-			nullptr,
+			precomputedColors_cuda,
 			opacity_cuda,
 			scale_cuda,
 			_scalingModifier,
