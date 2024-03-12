@@ -33,7 +33,7 @@ target_link_libraries(${PROJECT_NAME}
 	sibr_assets
 	sibr_renderer
 	sibr_basic
-	CUDA::cudart
+	${CUDAToolkit_BIN_DIR}
 )
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "projects/gaussian/apps")
 
