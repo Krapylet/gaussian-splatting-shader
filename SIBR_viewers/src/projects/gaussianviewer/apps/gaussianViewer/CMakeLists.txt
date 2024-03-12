@@ -17,6 +17,8 @@ source_group("Source Files" FILES ${SOURCES})
 file(GLOB RESOURCES "resources/*.ini")
 source_group("Resources Files" FILES ${RESOURCES})
 
+find_package(CUDAToolkit REQUIRED)
+
 add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_libraries(${PROJECT_NAME}
 
@@ -31,6 +33,7 @@ target_link_libraries(${PROJECT_NAME}
 	sibr_assets
 	sibr_renderer
 	sibr_basic
+	CUDA::cudart
 )
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "projects/gaussian/apps")
 
